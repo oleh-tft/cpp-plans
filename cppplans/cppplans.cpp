@@ -11,9 +11,45 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszCmdLin
 }
 
 HWND hAdd, hDate, hTime, hTags, hComm, hPrio1, hPrio2, hPrio3;
+HWND hList, hTaskDate, hTaskTime, hTaskPrio, hTaskTags, hTaskComm;
+HWND hFind, hFindButton, hSave;
 vector<Task> tasks;
 
-Task AddTask(HWND& editDate, HWND& editTime, HWND& editTags, HWND& editComm)
+void ShowAll()
+{
+    SendMessage(hList, LB_RESETCONTENT, 0, 0);
+    for (Task task : tasks)
+    {
+        SendMessage(hList, LB_ADDSTRING, 0, LPARAM(task.GetCommentary()));
+    }
+}
+
+void FindTask()
+{
+    SendMessage(hList, LB_RESETCONTENT, 0, 0);
+
+    int lengthFind = SendMessage(hFind, WM_GETTEXTLENGTH, 0, 0);
+    TCHAR* bufferFind = new TCHAR[lengthFind + 1];
+    GetWindowText(hFind, bufferFind, lengthFind + 1);
+
+    vector<Task> filtered;
+    for (Task task : tasks)
+    {
+        if (_tcsstr(task.GetDate(), bufferFind) != nullptr || _tcsstr(task.GetTime(), bufferFind) != nullptr ||
+            _tcsstr(task.GetTags(), bufferFind) != nullptr || _tcsstr(task.GetCommentary(), bufferFind) != nullptr ||
+            _tcsstr(task.GetPriority(), bufferFind) != nullptr)
+        {
+            filtered.push_back(task);
+        }
+    }
+    
+    for (Task task : filtered)
+    {
+        SendMessage(hList, LB_ADDSTRING, 0, LPARAM(task.GetCommentary()));
+    }
+}
+
+Task AddTask()
 {
     int lengthDate = SendMessage(hDate, WM_GETTEXTLENGTH, 0, 0);
     TCHAR* bufferDate = new TCHAR[lengthDate + 1];
@@ -51,12 +87,57 @@ BOOL CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         hPrio1 = GetDlgItem(hWnd, IDC_RADIO1);
         hPrio2 = GetDlgItem(hWnd, IDC_RADIO2);
         hPrio3 = GetDlgItem(hWnd, IDC_RADIO3);
+        hList = GetDlgItem(hWnd, IDC_LIST1);
+        hTaskDate = GetDlgItem(hWnd, IDC_EDIT5);
+        hTaskTime = GetDlgItem(hWnd, IDC_EDIT6);
+        hTaskPrio = GetDlgItem(hWnd, IDC_EDIT7);
+        hTaskTags = GetDlgItem(hWnd, IDC_EDIT8);
+        hTaskComm = GetDlgItem(hWnd, IDC_EDIT9);
+        hFind = GetDlgItem(hWnd, IDC_EDIT10);
+        hFindButton = GetDlgItem(hWnd, IDC_BUTTON2);
+        hSave = GetDlgItem(hWnd, IDC_BUTTON3);
+
         return TRUE;
     case WM_COMMAND:
         if (wParam == IDC_BUTTON1)
         {
-            Task add = AddTask(hDate, hTime, hTags, hComm);
-            SendMessage(hList, LB_ADDSTRING, 0, LPARAM(buf));
+            Task add = AddTask();
+            SendMessage(hList, LB_ADDSTRING, 0, LPARAM(add.GetCommentary()));
+        }
+        if (LOWORD(wParam) == IDC_LIST1 && HIWORD(wParam) == LBN_SELCHANGE)
+        {
+            int index = SendMessage(hList, LB_GETCURSEL, 0, 0);
+            if (index != LB_ERR)
+            {
+                Task currentTask;
+                for (int i = 0; i < tasks.size(); i++)
+                {
+                    int length = SendMessage(hList, LB_GETTEXTLEN, index, 0);
+                    TCHAR* pBuffer = new TCHAR[length + 1];
+                    SendMessage(hList, LB_GETTEXT, index, LPARAM(pBuffer));
+                    if (_tcscmp(pBuffer, tasks.at(i).GetCommentary()) == 0)
+                    {
+                        currentTask = tasks.at(i);
+                        break;
+                    }
+                }
+                SetWindowText(hTaskDate, currentTask.GetDate());
+                SetWindowText(hTaskTime, currentTask.GetTime());
+                SetWindowText(hTaskPrio, currentTask.GetPriority());
+                SetWindowText(hTaskTags, currentTask.GetTags());
+                SetWindowText(hTaskComm, currentTask.GetCommentary());
+            }
+        }
+        if (wParam == IDC_BUTTON2)
+        {
+            FindTask();
+        }
+        if (wParam == IDC_BUTTON3)
+        {
+            for (Task task : tasks)
+            {
+                task.SaveToFile();
+            }
         }
         return TRUE;
     case WM_CLOSE:
